@@ -35,6 +35,23 @@ export function slugFromEmail(email: string): string {
   return base.length >= 3 && !RESERVED_SLUGS.has(base) ? base : `status-${base}`.replace(/-+$/, '');
 }
 
+export type SignupMode = 'open' | 'invite' | 'closed';
+
+export function signupMode(setting: string | undefined): SignupMode {
+  const v = (setting ?? '').trim();
+  return v === '*' ? 'open' : v === '' ? 'closed' : 'invite';
+}
+
+/** Whether `email` (already normalized) may create an account under `setting`. */
+export function canSignUp(setting: string | undefined, email: string): boolean {
+  const mode = signupMode(setting);
+  if (mode !== 'invite') return mode === 'open';
+  return (setting ?? '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .includes(email);
+}
+
 export function cleanText(raw: unknown, max: number): string | null {
   if (typeof raw !== 'string') return null;
   const s = raw.trim().replace(/\s+/g, ' ');

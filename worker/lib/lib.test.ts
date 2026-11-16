@@ -3,7 +3,7 @@ import { hashPassword, verifyPassword } from './crypto';
 import { nextState } from './state';
 import { validateTarget } from './target';
 import { DAY_MS, dayBars, overallUptime } from './uptime';
-import { slugFromEmail, slugProblem } from './validate';
+import { canSignUp, signupMode, slugFromEmail, slugProblem } from './validate';
 
 describe('validateTarget', () => {
   it('accepts public http(s) URLs and normalizes them', () => {
@@ -122,6 +122,27 @@ describe('passwords', () => {
 
   it('salts every hash', async () => {
     expect(await hashPassword('same password')).not.toBe(await hashPassword('same password'));
+  });
+});
+
+describe('sign-up gate', () => {
+  it('is closed by default', () => {
+    expect(signupMode(undefined)).toBe('closed');
+    expect(signupMode('  ')).toBe('closed');
+    expect(canSignUp('', 'a@example.com')).toBe(false);
+  });
+
+  it('opens to anyone with *', () => {
+    expect(signupMode('*')).toBe('open');
+    expect(canSignUp('*', 'a@example.com')).toBe(true);
+  });
+
+  it('allows only listed emails, ignoring case and spaces', () => {
+    const list = 'Owner@Example.com, ops@example.com';
+    expect(signupMode(list)).toBe('invite');
+    expect(canSignUp(list, 'owner@example.com')).toBe(true);
+    expect(canSignUp(list, 'ops@example.com')).toBe(true);
+    expect(canSignUp(list, 'other@example.com')).toBe(false);
   });
 });
 

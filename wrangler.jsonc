@@ -25,6 +25,9 @@
   "vars": {
     // Set to "true" only in local dev, so you can monitor http://localhost targets
     "ALLOW_PRIVATE_TARGETS": "false"
+    // SIGNUP_EMAILS decides who may create an account. Unset = nobody, "*" = anyone,
+    // or a comma-separated list of emails. Set it as a secret so real emails stay out of the repo:
+    //   npx wrangler secret put SIGNUP_EMAILS
   },
   "observability": { "enabled": true }
 }

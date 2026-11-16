@@ -10,9 +10,13 @@ import { Settings } from './pages/Settings';
 import { StatusPage } from './pages/StatusPage';
 import { match, navigate, usePath } from './router';
 
+export type SignupMode = 'open' | 'invite' | 'closed';
+
 interface Session {
   me: Me | null;
   setMe: (me: Me | null) => void;
+  /** Whether this instance takes new accounts. Links to /signup only show when 'open'. */
+  signups: SignupMode;
 }
 
 const SessionContext = createContext<Session | null>(null);
@@ -42,6 +46,14 @@ function Private({ me, children }: { me: Me | null; children: ReactNode }) {
 export function App() {
   const path = usePath();
   const [me, setMe] = useState<Me | null | undefined>(undefined);
+  const [signups, setSignups] = useState<SignupMode>('closed');
+
+  useEffect(() => {
+    api
+      .config()
+      .then((c) => setSignups(c.signups))
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     // The public status page doesn't need to know who's logged in
@@ -60,7 +72,7 @@ export function App() {
   if (status) return <StatusPage slug={status.slug} />;
   if (me === undefined) return <Loading />;
 
-  const session: Session = { me, setMe };
+  const session: Session = { me, setMe, signups };
   let page: ReactNode;
   let params: Record<string, string> | null;
   if (path === '/' || path === '') page = <Landing />;

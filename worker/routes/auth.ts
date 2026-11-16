@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { allow, clientIp, endSession, requireUser, startSession, toMe } from '../auth';
 import { HttpError, type AppEnv, type UserRow } from '../env';
 import { hashPassword, randomId, verifyPassword } from '../lib/crypto';
-import { normalizeEmail, passwordProblem, slugFromEmail } from '../lib/validate';
+import { canSignUp, normalizeEmail, passwordProblem, signupMode, slugFromEmail } from '../lib/validate';
 import { readJson } from './util';
 
 // Compared against when the email doesn't exist, so a miss takes as long as a wrong password
@@ -10,13 +10,22 @@ const DUMMY_HASH = 'pbkdf2-sha256$100000$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAA
 
 export const auth = new Hono<AppEnv>();
 
+// Public: lets the UI hide sign-up links. Never reveals the allowlist itself.
+auth.get('/config', (c) => c.json({ signups: signupMode(c.env.SIGNUP_EMAILS) }));
+
 auth.post('/signup', async (c) => {
+  if (signupMode(c.env.SIGNUP_EMAILS) === 'closed') {
+    throw new HttpError(403, 'Sign-ups are closed on this instance.');
+  }
   if (!(await allow(c.env.DB, `signup:${clientIp(c)}`, 5, 3_600_000))) {
     throw new HttpError(429, 'Too many sign-ups from this network. Try again later.');
   }
   const body = await readJson(c);
   const email = normalizeEmail(body.email);
   if (!email) throw new HttpError(400, 'Enter a valid email');
+  if (!canSignUp(c.env.SIGNUP_EMAILS, email)) {
+    throw new HttpError(403, 'This email is not on the invite list for this instance.');
+  }
   const problem = passwordProblem(body.password);
   if (problem) throw new HttpError(400, problem);
 

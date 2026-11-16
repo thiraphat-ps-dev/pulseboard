@@ -2,7 +2,7 @@
 
 Uptime monitoring with a public status page. Add the URLs you care about. Pulseboard checks them on a schedule, alerts you on Discord or Slack when one goes down (and when it comes back), and publishes a status page with 90 days of history.
 
-Multi-user: anyone can sign up and gets their own monitors and their own status page at `/s/<name>`.
+Multi-user: every account has its own monitors and its own status page at `/s/<name>`. Who can sign up is a setting (`SIGNUP_EMAILS`): closed by default, an invite list, or open to anyone.
 
 ## Features
 
@@ -54,7 +54,10 @@ Everything fits Cloudflare's free plan for personal use.
 
 ```sh
 npm install
-echo ALLOW_PRIVATE_TARGETS=true > .dev.vars   # optional: monitor localhost while developing
+cat > .dev.vars <<'EOF'                      # local only: monitor localhost, open sign-ups
+ALLOW_PRIVATE_TARGETS=true
+SIGNUP_EMAILS=*
+EOF
 npm run db:migrate:local
 npm run dev                                   # http://localhost:5173
 ```
@@ -75,8 +78,11 @@ npm run dev                                   # http://localhost:5173
 npx wrangler login
 npx wrangler d1 create pulseboard        # copy the database_id into wrangler.jsonc
 npm run db:migrate:remote
+npx wrangler secret put SIGNUP_EMAILS    # your email, so you can create the first account
 npm run deploy
 ```
+
+Sign-ups stay closed for everyone else. Set `SIGNUP_EMAILS` to `*` to open them, or to a comma-separated list to invite people.
 
 ## License
 

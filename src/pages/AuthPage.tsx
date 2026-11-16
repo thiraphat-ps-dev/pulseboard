@@ -12,7 +12,7 @@ function nextPath(): string {
 }
 
 export function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
-  const { setMe } = useSession();
+  const { setMe, signups } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -76,16 +76,19 @@ export function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
           </form>
         </Card.Body>
       </Card>
+      {signup && signups === 'closed' && (
+        <p className="muted small">Sign-ups are closed on this instance.</p>
+      )}
       <p className="muted">
         {signup ? (
           <>
             Already have an account? <Link href="/login">Log in</Link>
           </>
-        ) : (
+        ) : signups === 'open' ? (
           <>
             New here? <Link href="/signup">Create an account</Link>
           </>
-        )}
+        ) : null}
       </p>
     </div>
   );

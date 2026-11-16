@@ -5,6 +5,8 @@ import { ThemeToggle } from '../components/ThemeToggle';
 import { UptimeBars } from '../components/UptimeBars';
 import { Link } from '../router';
 
+const REPO = 'https://github.com/thiraphat-ps-dev/pulseboard';
+
 // Illustrative bars for the hero: mostly green with one bad day and one partial day
 const DEMO_DAYS = Array.from({ length: 90 }, (_, i) => ({
   date: new Date(Date.UTC(2026, 0, 1 + i)).toISOString().slice(0, 10),
@@ -13,7 +15,8 @@ const DEMO_DAYS = Array.from({ length: 90 }, (_, i) => ({
 }));
 
 export function Landing() {
-  const { me } = useSession();
+  const { me, signups } = useSession();
+  const open = signups === 'open';
   return (
     <div className="landing">
       <header className="topbar">
@@ -24,8 +27,8 @@ export function Landing() {
             <Button size="sm" render={<Link href="/app" />}>Open dashboard</Button>
           ) : (
             <>
-              <Button variant="ghost" size="sm" render={<Link href="/login" />}>Log in</Button>
-              <Button size="sm" render={<Link href="/signup" />}>Sign up</Button>
+              <Button variant={open ? 'ghost' : 'outline'} size="sm" render={<Link href="/login" />}>Log in</Button>
+              {open && <Button size="sm" render={<Link href="/signup" />}>Sign up</Button>}
             </>
           )}
         </div>
@@ -37,10 +40,21 @@ export function Landing() {
           public status page to share.
         </p>
         <div className="hero-actions">
-          <Button size="lg" render={<Link href={me ? '/app' : '/signup'} />}>
-            {me ? 'Open dashboard' : 'Start monitoring, free'}
-          </Button>
+          {me || open ? (
+            <Button size="lg" render={<Link href={me ? '/app' : '/signup'} />}>
+              {me ? 'Open dashboard' : 'Start monitoring, free'}
+            </Button>
+          ) : (
+            <Button size="lg" render={<a href={REPO} />}>
+              Deploy your own
+            </Button>
+          )}
         </div>
+        {!me && !open && (
+          <p className="muted small">
+            Open source and free to run on Cloudflare. This instance is private.
+          </p>
+        )}
         <section className="hero-demo" aria-label="Example status page">
           <div className="demo-head">
             <strong>API</strong>

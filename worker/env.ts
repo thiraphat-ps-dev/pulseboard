@@ -2,6 +2,8 @@ export interface Env {
   DB: D1Database;
   /** "true" lets monitors point at localhost / private IPs. Local dev only. */
   ALLOW_PRIVATE_TARGETS?: string;
+  /** "" = sign-ups closed, "*" = open to anyone, otherwise a comma-separated email allowlist. */
+  SIGNUP_EMAILS?: string;
 }
 
 export interface UserRow {
