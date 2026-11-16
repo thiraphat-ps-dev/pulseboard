@@ -4,6 +4,16 @@ Uptime monitoring with a public status page. Add the URLs you care about. Pulseb
 
 Multi-user: every account has its own monitors and its own status page at `/s/<name>`. Who can sign up is a setting (`SIGNUP_EMAILS`): closed by default, an invite list, or open to anyone.
 
+**Live:** [status page](https://pulseboard.thira-web.workers.dev/s/thiraphat-ps-dev) for my own projects, checked every 5 minutes.
+
+![Monitor detail: uptime stats, 24-hour response time chart and 90-day uptime bars](docs/monitor.jpg)
+
+| Dashboard | Public status page (dark theme) |
+| --- | --- |
+| ![Monitor list with status, sparklines and 24h uptime](docs/dashboard.jpg) | ![Status page: all systems operational, 90-day bars per service](docs/status-page.jpg) |
+
+<sub>Screenshots use the demo data from `scripts/seed-demo.ts`.</sub>
+
 ## Features
 
 - **HTTP checks** every 1, 5, 10, 30 or 60 minutes, with response time for every check
