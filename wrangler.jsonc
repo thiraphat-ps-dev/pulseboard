@@ -13,8 +13,8 @@
     {
       "binding": "DB",
       "database_name": "pulseboard",
-      // Placeholder for local dev. Replace with the id from `wrangler d1 create pulseboard` before deploying.
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      // From `wrangler d1 create pulseboard`. Forks: create your own and replace this.
+      "database_id": "b6e38100-8b59-4fe9-9d12-c1e74b46dbbb",
       "migrations_dir": "migrations"
     }
   ],
