@@ -4,6 +4,10 @@ export interface Env {
   ALLOW_PRIVATE_TARGETS?: string;
   /** "" = sign-ups closed, "*" = open to anyone, otherwise a comma-separated email allowlist. */
   SIGNUP_EMAILS?: string;
+  /** Resend API key. Unset = email alerts unavailable. Set with `wrangler secret put RESEND_API_KEY`. */
+  RESEND_API_KEY?: string;
+  /** Sender for alert emails. Defaults to Resend's shared test address. */
+  ALERT_EMAIL_FROM?: string;
 }
 
 export interface UserRow {
@@ -13,6 +17,7 @@ export interface UserRow {
   slug: string;
   page_title: string;
   webhook_url: string | null;
+  email_alerts: number;
   created_at: number;
 }
 

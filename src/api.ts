@@ -31,8 +31,8 @@ export const api = {
   signup: (email: string, password: string) => request<Me>('POST', '/auth/signup', { email, password }),
   login: (email: string, password: string) => request<Me>('POST', '/auth/login', { email, password }),
   logout: () => request<void>('POST', '/auth/logout'),
-  updateMe: (patch: Partial<Pick<Me, 'slug' | 'pageTitle' | 'webhookUrl'>>) => request<Me>('PATCH', '/me', patch),
-  testAlert: () => request<{ ok: true }>('POST', '/me/test-alert'),
+  updateMe: (patch: Partial<Pick<Me, 'slug' | 'pageTitle' | 'webhookUrl' | 'emailAlerts'>>) => request<Me>('PATCH', '/me', patch),
+  testAlert: (channel: 'webhook' | 'email') => request<{ ok: true }>('POST', '/me/test-alert', { channel }),
 
   monitors: () => request<MonitorSummary[]>('GET', '/monitors'),
   monitor: (id: string) => request<MonitorDetail>('GET', `/monitors/${id}`),

@@ -18,7 +18,7 @@ Multi-user: every account has its own monitors and its own status page at `/s/<n
 
 - **HTTP checks** every 1, 5, 10, 30 or 60 minutes, with response time for every check
 - **No false alarms:** a monitor only counts as down after two failed checks in a row; recovery closes the incident
-- **Alerts** to any Discord or Slack-compatible incoming webhook, with a test button
+- **Alerts** by email and to any Discord or Slack-compatible incoming webhook, with test buttons. Changes in the same minute are batched into one message, so an outage across ten monitors sends one alert, not ten
 - **Dashboard:** status, 24h uptime, sparkline per monitor; a detail page with a 24-hour response-time chart, 90-day uptime bars, incidents and recent checks
 - **Public status page:** overall status, 90-day bars per service, incidents from the last 14 days. Shows names only, never the monitored URLs
 - Light and dark themes, responsive down to phone width, keyboard-accessible charts
@@ -44,10 +44,10 @@ Everything fits Cloudflare's free plan for personal use.
   monitors due (next_check_at <= now) ──► fetch(url, 10 s timeout)
              │                                    │
              ▼                                    ▼
-  checks row + state machine (up / down) ──► incident opened or resolved ──► webhook alert
+  checks row + state machine (up / down) ──► incident opened or resolved ──► email + webhook alert
 ```
 
-- `worker/checker.ts`: picks due monitors (up to 30 per run, under the Workers sub-request limit), runs them in parallel, records results in one D1 batch, and sends alerts. Hourly cleanup keeps 91 days of checks.
+- `worker/checker.ts`: picks due monitors (up to 30 per run, under the Workers sub-request limit), runs them in parallel, records results in one D1 batch, and sends one combined alert per user. Hourly cleanup keeps 91 days of checks.
 - `worker/lib/state.ts`: the pure up/down state machine.
 - `worker/routes/*`: auth, monitors, account settings, public status.
 - `src/`: the React app. A small history router; charts are hand-written SVG.
@@ -93,6 +93,18 @@ npm run deploy
 ```
 
 Sign-ups stay closed for everyone else. Set `SIGNUP_EMAILS` to `*` to open them, or to a comma-separated list to invite people.
+
+### Email alerts (optional)
+
+Email goes through [Resend](https://resend.com) (free: 100 emails a day). Create an API key, then:
+
+```sh
+npx wrangler secret put RESEND_API_KEY
+```
+
+Each user turns email alerts on in Settings. They are sent to the account's email address.
+
+Without a verified domain, Resend sends from `onboarding@resend.dev` and only delivers to the email you signed up to Resend with, which is enough for a personal setup. To email other users, [verify a domain](https://resend.com/docs/dashboard/domains/introduction) and set `ALERT_EMAIL_FROM` (for example `Pulseboard <alerts@example.com>`) in `wrangler.jsonc` vars.
 
 ## License
 

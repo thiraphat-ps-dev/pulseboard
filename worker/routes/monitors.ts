@@ -70,7 +70,7 @@ monitors.post('/', async (c) => {
       m.consecutive_failures, m.last_checked_at, m.next_check_at, m.created_at)
     .run();
   // First check right away instead of waiting for the next cron tick
-  c.executionCtx.waitUntil(runMonitor(c.env, { ...m, webhook_url: user.webhook_url }, now));
+  c.executionCtx.waitUntil(runMonitor(c.env, m, user, now));
   const [summary] = await summaries(c.env.DB, [m], now);
   return c.json(summary, 201);
 });
@@ -166,6 +166,6 @@ monitors.post('/:id/check', async (c) => {
   if (m.last_checked_at && Date.now() - m.last_checked_at < 10_000) {
     throw new HttpError(429, 'Checked a moment ago. Try again in a few seconds.');
   }
-  const r = await runMonitor(c.env, { ...m, webhook_url: user.webhook_url });
+  const r = await runMonitor(c.env, m, user);
   return c.json(r);
 });

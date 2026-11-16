@@ -1,14 +1,23 @@
 import type { Context, MiddlewareHandler } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import type { Me } from '../shared/types';
-import { HttpError, type AppEnv, type UserRow } from './env';
+import { emailAvailable } from './email';
+import { HttpError, type AppEnv, type Env, type UserRow } from './env';
 import { randomToken, sha256 } from './lib/crypto';
 
 const COOKIE = 'pb_session';
 const SESSION_DAYS = 30;
 
-export function toMe(u: UserRow): Me {
-  return { id: u.id, email: u.email, slug: u.slug, pageTitle: u.page_title, webhookUrl: u.webhook_url };
+export function toMe(u: UserRow, env: Env): Me {
+  return {
+    id: u.id,
+    email: u.email,
+    slug: u.slug,
+    pageTitle: u.page_title,
+    webhookUrl: u.webhook_url,
+    emailAlerts: Boolean(u.email_alerts),
+    emailAvailable: emailAvailable(env),
+  };
 }
 
 export async function startSession(c: Context<AppEnv>, userId: string): Promise<void> {

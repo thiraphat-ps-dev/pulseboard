@@ -63,6 +63,12 @@ h2 {
   gap: var(--thira-space-2);
 }
 
+.row.split {
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--thira-space-4);
+}
+
 .center-screen {
   min-height: 100dvh;
   display: grid;

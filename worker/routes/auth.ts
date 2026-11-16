@@ -48,6 +48,7 @@ auth.post('/signup', async (c) => {
     slug,
     page_title: 'Service status',
     webhook_url: null,
+    email_alerts: 0,
     created_at: Date.now(),
   };
   await c.env.DB.prepare(
@@ -56,7 +57,7 @@ auth.post('/signup', async (c) => {
     .bind(user.id, user.email, user.password_hash, user.slug, user.page_title, user.webhook_url, user.created_at)
     .run();
   await startSession(c, user.id);
-  return c.json(toMe(user), 201);
+  return c.json(toMe(user, c.env), 201);
 });
 
 auth.post('/login', async (c) => {
@@ -73,7 +74,7 @@ auth.post('/login', async (c) => {
   const valid = await verifyPassword(password, user?.password_hash ?? DUMMY_HASH);
   if (!user || !valid) throw new HttpError(401, 'Email or password is incorrect');
   await startSession(c, user.id);
-  return c.json(toMe(user));
+  return c.json(toMe(user, c.env));
 });
 
 auth.post('/logout', async (c) => {
@@ -81,4 +82,4 @@ auth.post('/logout', async (c) => {
   return c.body(null, 204);
 });
 
-auth.get('/me', requireUser, (c) => c.json(toMe(c.get('user'))));
+auth.get('/me', requireUser, (c) => c.json(toMe(c.get('user'), c.env)));

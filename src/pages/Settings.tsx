@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Button, Card, Input, useToast } from 'thira-ui';
+import { Button, Card, Input, Switch, useToast } from 'thira-ui';
 import { api, ApiError } from '../api';
 import { useSession } from '../App';
 import { Shell } from '../components/Shell';
@@ -11,7 +11,7 @@ export function Settings() {
   const [slug, setSlug] = useState(me?.slug ?? '');
   const [webhook, setWebhook] = useState(me?.webhookUrl ?? '');
   const [errors, setErrors] = useState<{ page?: string; webhook?: string }>({});
-  const [busy, setBusy] = useState<'page' | 'webhook' | 'test' | null>(null);
+  const [busy, setBusy] = useState<'page' | 'webhook' | 'test' | 'email' | 'test-email' | null>(null);
   if (!me) return null;
 
   const savePage = async (e: FormEvent) => {
@@ -42,11 +42,23 @@ export function Settings() {
     }
   };
 
-  const test = async () => {
-    setBusy('test');
+  const toggleEmail = async (on: boolean) => {
+    setBusy('email');
     try {
-      await api.testAlert();
-      toast({ title: 'Test alert sent', tone: 'success' });
+      setMe(await api.updateMe({ emailAlerts: on }));
+      toast({ title: on ? `Alerts will be emailed to ${me.email}` : 'Email alerts turned off', tone: 'success' });
+    } catch (err) {
+      toast({ title: err instanceof ApiError ? err.message : 'Could not save', tone: 'danger' });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const test = async (channel: 'webhook' | 'email') => {
+    setBusy(channel === 'email' ? 'test-email' : 'test');
+    try {
+      await api.testAlert(channel);
+      toast({ title: channel === 'email' ? `Test email sent to ${me.email}` : 'Test alert sent', tone: 'success' });
     } catch (err) {
       toast({ title: err instanceof ApiError ? err.message : 'Could not send', tone: 'danger' });
     } finally {
@@ -93,13 +105,34 @@ export function Settings() {
         <Card.Header>
           <Card.Title render={<h2 />}>Alerts</Card.Title>
           <Card.Description>
-            Paste a Discord or Slack incoming webhook. We post when a monitor goes down and when it recovers.
+            We alert you when a monitor goes down and when it recovers. Changes in the same minute arrive as
+            one message.
           </Card.Description>
         </Card.Header>
-        <Card.Body>
+        <Card.Body className="stack">
+          <div className="row split">
+            <Switch
+              label="Email alerts"
+              description={
+                me.emailAvailable ? `Sent to ${me.email}` : 'Not set up on this server (needs RESEND_API_KEY)'
+              }
+              checked={me.emailAlerts}
+              disabled={!me.emailAvailable || busy === 'email'}
+              onCheckedChange={(on) => void toggleEmail(on)}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void test('email')}
+              loading={busy === 'test-email'}
+              disabled={!me.emailAlerts}
+            >
+              Send test email
+            </Button>
+          </div>
           <form className="stack" onSubmit={(e) => void saveWebhook(e)}>
             <Input
-              label="Webhook URL"
+              label="Discord or Slack webhook URL"
               type="url"
               placeholder="https://discord.com/api/webhooks/…"
               value={webhook}
@@ -110,7 +143,7 @@ export function Settings() {
               <Button type="submit" loading={busy === 'webhook'}>
                 Save
               </Button>
-              <Button type="button" variant="outline" onClick={() => void test()} loading={busy === 'test'} disabled={!me.webhookUrl}>
+              <Button type="button" variant="outline" onClick={() => void test('webhook')} loading={busy === 'test'} disabled={!me.webhookUrl}>
                 Send test alert
               </Button>
             </div>

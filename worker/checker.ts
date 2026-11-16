@@ -1,4 +1,6 @@
-import type { Env, MonitorRow } from './env';
+import { emailAvailable, sendEmail } from './email';
+import type { Env, MonitorRow, UserRow } from './env';
+import { buildAlert, emailText, type Notice } from './lib/notify';
 import { nextState, type Transition } from './lib/state';
 
 export interface CheckResult {
@@ -8,7 +10,10 @@ export interface CheckResult {
   error: string | null;
 }
 
-/** Monitors per cron run. Workers allow 50 outgoing requests per invocation; leave room for webhooks. */
+/**
+ * Monitors per cron run. Free Workers allow 50 outgoing requests per invocation: 30 checks leave
+ * 20 for alerts, i.e. 10 users (webhook + email each) with a state change in the same minute.
+ */
 const BATCH = 30;
 const RETENTION_DAYS = 91;
 
@@ -74,13 +79,6 @@ export async function recordCheck(
   return next.event;
 }
 
-function formatDuration(ms: number): string {
-  const min = Math.round(ms / 60_000);
-  if (min < 60) return `${Math.max(min, 1)} min`;
-  const h = Math.floor(min / 60);
-  return `${h} h ${min % 60} min`;
-}
-
 /** Post to a Discord or Slack-compatible incoming webhook. Failures are logged, never thrown. */
 export async function sendAlert(webhookUrl: string, text: string): Promise<boolean> {
   try {
@@ -99,38 +97,77 @@ export async function sendAlert(webhookUrl: string, text: string): Promise<boole
   }
 }
 
-async function alertFor(env: Env, m: MonitorRow & { webhook_url: string | null }, event: Transition, r: CheckResult, now: number) {
-  if (!event || !m.webhook_url) return;
-  if (event === 'down') {
-    await sendAlert(m.webhook_url, `🔴 ${m.name} is down: ${r.error ?? 'check failed'}\n${m.url}`);
-  } else {
-    const open = await env.DB.prepare(
+/** Where a user's alerts go. */
+export type AlertTarget = Pick<UserRow, 'webhook_url' | 'email' | 'email_alerts'>;
+
+/** Send one combined alert for `notices` to every channel the user turned on. At most 2 sub-requests. */
+export async function deliverAlerts(env: Env, to: AlertTarget, notices: Notice[], now = Date.now()): Promise<void> {
+  const message = buildAlert(notices);
+  if (!message) return;
+  const sends: Promise<boolean>[] = [];
+  if (to.webhook_url) sends.push(sendAlert(to.webhook_url, message.text));
+  if (to.email_alerts && emailAvailable(env)) {
+    sends.push(sendEmail(env, to.email, message.subject, emailText(message, now)));
+  }
+  await Promise.all(sends);
+}
+
+/** Check one monitor and record it. Returns the result and, on a state change, the notice to send. */
+async function checkAndRecord(env: Env, m: MonitorRow, now: number): Promise<{ result: CheckResult; notice: Notice | null }> {
+  const r = await checkUrl(m.url, m.timeout_ms);
+  const event = await recordCheck(env.DB, m, r, now);
+  if (!event) return { result: r, notice: null };
+  let downForMs: number | null = null;
+  if (event === 'recovered') {
+    const closed = await env.DB.prepare(
       'SELECT started_at FROM incidents WHERE monitor_id = ? AND resolved_at = ? ORDER BY started_at DESC LIMIT 1',
     )
       .bind(m.id, now)
       .first<{ started_at: number }>();
-    const took = open ? ` after ${formatDuration(now - open.started_at)}` : '';
-    await sendAlert(m.webhook_url, `🟢 ${m.name} is back up${took} (${r.latencyMs} ms)\n${m.url}`);
+    if (closed) downForMs = now - closed.started_at;
   }
+  const notice: Notice = {
+    event,
+    monitorName: m.name,
+    url: m.url,
+    error: event === 'down' ? r.error : null,
+    latencyMs: r.latencyMs,
+    downForMs,
+    at: now,
+  };
+  return { result: r, notice };
 }
 
-export async function runMonitor(env: Env, m: MonitorRow & { webhook_url: string | null }, now = Date.now()) {
-  const r = await checkUrl(m.url, m.timeout_ms);
-  const event = await recordCheck(env.DB, m, r, now);
-  await alertFor(env, m, event, r, now);
-  return r;
+/** Check one monitor now (from the API) and alert its owner on a state change. */
+export async function runMonitor(env: Env, m: MonitorRow, owner: AlertTarget, now = Date.now()): Promise<CheckResult> {
+  const { result, notice } = await checkAndRecord(env, m, now);
+  if (notice) await deliverAlerts(env, owner, [notice], now);
+  return result;
 }
+
+type DueRow = MonitorRow & AlertTarget;
 
 export async function runDueChecks(env: Env, now: number): Promise<number> {
   // A little slack so a monitor due a few seconds after the cron tick isn't pushed a whole minute
   const { results } = await env.DB.prepare(
-    `SELECT m.*, u.webhook_url FROM monitors m JOIN users u ON u.id = m.user_id
+    `SELECT m.*, u.webhook_url, u.email, u.email_alerts FROM monitors m JOIN users u ON u.id = m.user_id
      WHERE m.paused = 0 AND m.next_check_at <= ? ORDER BY m.next_check_at LIMIT ?`,
   )
     .bind(now + 5000, BATCH)
-    .all<MonitorRow & { webhook_url: string | null }>();
-  const settled = await Promise.allSettled(results.map((m) => runMonitor(env, m, now)));
-  for (const s of settled) if (s.status === 'rejected') console.error('check failed to record', s.reason);
+    .all<DueRow>();
+  const settled = await Promise.allSettled(results.map((m) => checkAndRecord(env, m, now)));
+
+  // One alert per user per run, so an outage that hits ten monitors sends one message, not ten
+  const byUser = new Map<string, { to: AlertTarget; notices: Notice[] }>();
+  settled.forEach((s, i) => {
+    if (s.status === 'rejected') return console.error('check failed to record', s.reason);
+    if (!s.value.notice) return;
+    const m = results[i];
+    const entry = byUser.get(m.user_id) ?? { to: m, notices: [] };
+    entry.notices.push(s.value.notice);
+    byUser.set(m.user_id, entry);
+  });
+  await Promise.allSettled([...byUser.values()].map((u) => deliverAlerts(env, u.to, u.notices, now)));
   return results.length;
 }
 

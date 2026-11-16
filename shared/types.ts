@@ -15,6 +15,10 @@ export interface Me {
   slug: string;
   pageTitle: string;
   webhookUrl: string | null;
+  /** Email alerts to `email` are on */
+  emailAlerts: boolean;
+  /** The server has an email provider configured */
+  emailAvailable: boolean;
 }
 
 export interface MonitorSummary {
